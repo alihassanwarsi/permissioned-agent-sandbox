@@ -1,0 +1,4 @@
+This is a sample notes file used for testing the sandbox file reader.
+It is not real data. Just a plain text file to confirm the agent can
+read files correctly from inside the sandbox folder and nowhere else.
+If you are seeing this file outside of testing, something went wrong.
