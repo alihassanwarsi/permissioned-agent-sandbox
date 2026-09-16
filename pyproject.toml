@@ -5,7 +5,7 @@ description = "A security-focused sandbox for tool-using AI agents."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "pydantic>=2.13.5",
+    "pydantic[email]>=2.13.5",
     "pydantic-settings>=2.15.0",
     "pytest>=9.1.1",
 ]
