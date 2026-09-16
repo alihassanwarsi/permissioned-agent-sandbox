@@ -1,6 +1,7 @@
 from pathlib import Path
 from pydantic import BaseModel
-from app.models.tool_spec import Role, RiskLevel, ToolSpec
+from app.models.user import Role
+from app.models.tool_spec import RiskLevel, ToolSpec
 
 SANDBOX_DIR = Path("sandbox_files").resolve()
 

@@ -1,12 +1,7 @@
 from enum import Enum
 from typing import Type
 from pydantic import BaseModel
-
-class Role(str, Enum):
-    VIEWER = "viewer"
-    ANALYST = "analyst"
-    OPERATOR = "operator"
-    ADMIN = "admin"
+from app.models.user import Role
 
 class RiskLevel(str, Enum):
     LOW = "low"

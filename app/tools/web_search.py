@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from app.models.tool_spec import Role, RiskLevel, ToolSpec
+from app.models.user import Role
+from app.models.tool_spec import RiskLevel, ToolSpec
 
 class WebSearchInput(BaseModel):
     query: str
