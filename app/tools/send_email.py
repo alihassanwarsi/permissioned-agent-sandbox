@@ -28,6 +28,7 @@ send_email_tool = ToolSpec(
     description="Sends an email to a recipient.",
     input_schema=SendEmailInput,
     output_schema=SendEmailOutput,
+    handler=send_email,
     allowed_roles=[Role.OPERATOR, Role.ADMIN],
     rate_limit=5,
     risk_level=RiskLevel.HIGH

@@ -43,6 +43,7 @@ web_search_tool = ToolSpec(
     description="Searches the web for a query and returns matching results.",
     input_schema=WebSearchInput,
     output_schema=WebSearchOutput,
+    handler=web_search,
     allowed_roles=[Role.ANALYST, Role.OPERATOR, Role.ADMIN],
     rate_limit=10,
     risk_level=RiskLevel.MEDIUM

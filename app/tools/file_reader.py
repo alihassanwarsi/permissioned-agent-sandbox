@@ -30,6 +30,7 @@ file_reader_tool = ToolSpec(
     description="Reads a text file from within the sandbox directory.",
     input_schema=FileReaderInput,
     output_schema=FileReaderOutput,
+    handler=read_files,
     allowed_roles=[Role.VIEWER, Role.ANALYST, Role.OPERATOR, Role.ADMIN],
     rate_limit=30,
     risk_level=RiskLevel.LOW

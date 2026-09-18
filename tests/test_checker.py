@@ -12,9 +12,14 @@ def make_user(role):
 
 def make_tool(risk, allowed_roles):
     return ToolSpec(
-        name="x", description="x",
-        input_schema=DummySchema, output_schema=DummySchema,
-        allowed_roles=allowed_roles, rate_limit=1, risk_level=risk,
+        name="x",
+        description="x",
+        input_schema=DummySchema,
+        output_schema=DummySchema,
+        handler=lambda input: None,
+        allowed_roles=allowed_roles,
+        rate_limit=1,
+        risk_level=risk,
     )
 
 def test_denied_when_role_not_allowed():

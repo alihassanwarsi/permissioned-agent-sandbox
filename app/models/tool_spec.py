@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Type
+from typing import Callable, Type
 from pydantic import BaseModel
 from app.models.user import Role
 
@@ -15,6 +15,7 @@ class ToolSpec(BaseModel):
     description: str
     input_schema: Type[BaseModel]
     output_schema: Type[BaseModel]
+    handler: Callable[[BaseModel], object]
     allowed_roles: list[Role]
     rate_limit: int
     risk_level: RiskLevel
