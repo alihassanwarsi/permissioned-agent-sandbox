@@ -18,7 +18,7 @@ def test_low_risk_tool_runs_end_to_end(mock_final_llm, mock_plan_llm, tmp_path, 
 
     state = intake("read notes.txt", User(id="1", name="test", role=Role.ANALYST))
     graph = build_graph(build_default_registry())
-    result = graph.invoke(state)
+    result = graph.invoke(state, config={"configurable": {"thread_id": "test-1"}})
 
     assert result["final_response"] == "The file says: hello world"
     assert result["decision"].value == "allowed"
@@ -32,7 +32,7 @@ def test_denied_role_stops_before_execution(mock_plan_llm):
 
     state = intake("email someone", User(id="1", name="test", role=Role.VIEWER))
     graph = build_graph(build_default_registry())
-    result = graph.invoke(state)
+    result = graph.invoke(state, config={"configurable": {"thread_id": "test-2"}})
 
     assert result["decision"].value == "denied"
     assert "not able to do that" in result["final_response"].lower()

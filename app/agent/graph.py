@@ -1,5 +1,8 @@
+import uuid
 from functools import partial
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, END
+from langgraph.types import Command
 from app.agent.nodes.permission_check import permission_check
 from app.agent.nodes.execute_tool import execute_tool
 from app.agent.nodes.final_response import final_response
@@ -10,6 +13,8 @@ from app.agent.nodes.select_tool import select_tool
 from app.models.agent_state import AgentState
 from app.permissions.checker import Decision
 from app.tools.registry import ToolRegistry
+
+_checkpointer = MemorySaver()
 
 def route_after_plan(state: AgentState) -> str:
     if state.selected_tool:
@@ -39,6 +44,11 @@ def route_after_reflection(state: AgentState) -> str:
         return "final_response"
     return "plan"
 
+def route_after_approval(state: AgentState) -> str:
+    if state.final_response is not None:
+        return "final_response"
+    return "execute_tool"
+
 def build_graph(registry: ToolRegistry):
     graph = StateGraph(AgentState)
 
@@ -57,7 +67,28 @@ def build_graph(registry: ToolRegistry):
     graph.add_conditional_edges("permission_check", route_after_permission)
     graph.add_conditional_edges("execute_tool", route_after_execute)
     graph.add_conditional_edges("reflection", route_after_reflection)
-    graph.add_edge("approval_wait", "final_response")
+    graph.add_conditional_edges("approval_wait", route_after_approval)
     graph.add_edge("final_response", END)
 
-    return graph.compile()
+    return graph.compile(checkpointer=_checkpointer)
+
+def run_agent(state: AgentState, registry: ToolRegistry) -> dict:
+    compiled_graph = build_graph(registry)
+    thread_id = state.task_id or str(uuid.uuid4())
+    config = {"configurable": {"thread_id": thread_id}}
+
+    result = compiled_graph.invoke(state, config=config)
+
+    if "__interrupt__" in result:
+        return {"status": "awaiting_approval", "thread_id": thread_id}
+    return {"status": "completed", "final_response": result["final_response"]}
+
+def resume_agent(thread_id: str, decision: dict, registry: ToolRegistry) -> dict:
+    compiled_graph = build_graph(registry)
+    config = {"configurable": {"thread_id": thread_id}}
+
+    result = compiled_graph.invoke(Command(resume=decision), config=config)
+
+    if "__interrupt__" in result:
+        return {"status": "awaiting_approval", "thread_id": thread_id}
+    return {"status": "completed", "final_response": result["final_response"]}
