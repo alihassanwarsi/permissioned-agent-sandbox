@@ -13,6 +13,7 @@ from app.agent.nodes.select_tool import select_tool
 from app.models.agent_state import AgentState
 from app.permissions.checker import Decision
 from app.tools.registry import ToolRegistry
+from app.approval.queue import ApprovalQueue
 
 _checkpointer = MemorySaver()
 
@@ -47,9 +48,11 @@ def route_after_reflection(state: AgentState) -> str:
 def route_after_approval(state: AgentState) -> str:
     if state.final_response is not None:
         return "final_response"
+    if state.selected_tool is None:
+        return "plan"
     return "execute_tool"
 
-def build_graph(registry: ToolRegistry):
+def build_graph(registry: ToolRegistry, queue: ApprovalQueue):
     graph = StateGraph(AgentState)
 
     graph.add_node("plan", partial(plan, registry=registry))
@@ -57,7 +60,7 @@ def build_graph(registry: ToolRegistry):
     graph.add_node("permission_check", partial(permission_check, registry=registry))
     graph.add_node("execute_tool", partial(execute_tool, registry=registry))
     graph.add_node("reflection", reflect)
-    graph.add_node("approval_wait", approval_wait)
+    graph.add_node("approval_wait", partial(approval_wait, registry=registry, queue=queue))
     graph.add_node("final_response", final_response)
 
     graph.set_entry_point("plan")
@@ -72,8 +75,8 @@ def build_graph(registry: ToolRegistry):
 
     return graph.compile(checkpointer=_checkpointer)
 
-def run_agent(state: AgentState, registry: ToolRegistry) -> dict:
-    compiled_graph = build_graph(registry)
+def run_agent(state: AgentState, registry: ToolRegistry, queue: ApprovalQueue) -> dict:
+    compiled_graph = build_graph(registry, queue)
     thread_id = state.task_id or str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
 
@@ -83,8 +86,8 @@ def run_agent(state: AgentState, registry: ToolRegistry) -> dict:
         return {"status": "awaiting_approval", "thread_id": thread_id}
     return {"status": "completed", "final_response": result["final_response"]}
 
-def resume_agent(thread_id: str, decision: dict, registry: ToolRegistry) -> dict:
-    compiled_graph = build_graph(registry)
+def resume_agent(thread_id: str, decision: dict, registry: ToolRegistry, queue: ApprovalQueue) -> dict:
+    compiled_graph = build_graph(registry, queue)
     config = {"configurable": {"thread_id": thread_id}}
 
     result = compiled_graph.invoke(Command(resume=decision), config=config)
