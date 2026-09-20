@@ -13,6 +13,9 @@ class ApprovalQueue:
     def list_pending(self) -> list[ApprovalRequest]:
         return [r for r in self._requests.values() if r.status == ApprovalStatus.PENDING]
 
+    def all_requests(self) -> list[ApprovalRequest]:
+        return list(self._requests.values())
+
     def resolve(
             self,
             request_id: str,
