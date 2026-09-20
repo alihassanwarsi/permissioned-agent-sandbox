@@ -20,3 +20,5 @@ class AgentState(BaseModel):
     retry_count: int = 0
 
     final_response: Optional[str] = None
+
+    approval_request_id: Optional[str] = None
