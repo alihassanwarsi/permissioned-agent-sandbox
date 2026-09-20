@@ -3,6 +3,7 @@ from functools import partial
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, END
 from langgraph.types import Command
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter
 from app.agent.nodes.permission_check import permission_check
 from app.agent.nodes.execute_tool import execute_tool
 from app.agent.nodes.final_response import final_response
@@ -14,8 +15,17 @@ from app.models.agent_state import AgentState
 from app.permissions.checker import Decision
 from app.tools.registry import ToolRegistry
 from app.approval.queue import ApprovalQueue
+from app.observability.tracing import build_tracer_provider, get_tracer
+from app.observability.trace_store import InMemoryTraceStore
+from app.observability.trace_node import traced_node
 
 _checkpointer = MemorySaver()
+_trace_store = InMemoryTraceStore()
+_tracer_provider = build_tracer_provider(exporters=[ConsoleSpanExporter(), _trace_store])
+_tracer = get_tracer(_tracer_provider)
+
+def get_trace_store() -> InMemoryTraceStore:
+    return _trace_store
 
 def route_after_plan(state: AgentState) -> str:
     if state.selected_tool:
@@ -55,13 +65,13 @@ def route_after_approval(state: AgentState) -> str:
 def build_graph(registry: ToolRegistry, queue: ApprovalQueue):
     graph = StateGraph(AgentState)
 
-    graph.add_node("plan", partial(plan, registry=registry))
-    graph.add_node("select_tool", partial(select_tool, registry=registry))
-    graph.add_node("permission_check", partial(permission_check, registry=registry))
-    graph.add_node("execute_tool", partial(execute_tool, registry=registry))
-    graph.add_node("reflection", reflect)
-    graph.add_node("approval_wait", partial(approval_wait, registry=registry, queue=queue))
-    graph.add_node("final_response", final_response)
+    graph.add_node("plan", traced_node(_tracer, "plan", partial(plan, registry=registry)))
+    graph.add_node("select_tool", traced_node(_tracer, "select_tool", partial(select_tool, registry=registry)))
+    graph.add_node("permission_check", traced_node(_tracer, "permission_check", partial(permission_check, registry=registry)))
+    graph.add_node("execute_tool", traced_node(_tracer, "execute_tool", partial(execute_tool, registry=registry)))
+    graph.add_node("reflection", traced_node(_tracer, "reflection", reflect))
+    graph.add_node("approval_wait", traced_node(_tracer, "approval_wait", partial(approval_wait, registry=registry, queue=queue)))
+    graph.add_node("final_response", traced_node(_tracer, "final_response", final_response))
 
     graph.set_entry_point("plan")
 
