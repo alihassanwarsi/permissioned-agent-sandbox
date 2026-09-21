@@ -33,6 +33,8 @@ def route_after_plan(state: AgentState) -> str:
     return "final_response"
 
 def route_after_select_tool(state: AgentState) -> str:
+    if state.tool_error:
+        return "reflection"
     if state.selected_tool:
         return "permission_check"
     return "final_response"

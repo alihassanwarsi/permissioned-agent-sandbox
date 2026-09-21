@@ -37,3 +37,18 @@ def test_denied_role_stops_before_execution(mock_plan_llm):
 
     assert result["decision"].value == "denied"
     assert "not able to do that" in result["final_response"].lower()
+
+@patch("app.agent.nodes.plan.call_llm")
+@patch("app.agent.nodes.reflection.call_llm")
+def test_invalid_tool_input_goes_to_reflection(mock_reflect_llm, mock_plan_llm):
+    mock_plan_llm.return_value = (
+        '{"tool": "file_reader", "input": {"wrong_field": "x"}, '
+        '"reasoning": "bad input"}'
+    )
+    mock_reflect_llm.return_value = "stop"
+
+    state = intake("read something", User(id="1", name="test", role=Role.ANALYST))
+    graph = build_graph(build_default_registry(), ApprovalQueue())
+    result = graph.invoke(state, config={"configurable": {"thread_id": "test-3"}})
+
+    assert "couldn't complete" in result["final_response"].lower() or "couldn't" in result["final_response"].lower()
