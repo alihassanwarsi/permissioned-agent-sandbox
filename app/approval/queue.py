@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from app.models.approval import ApprovalOutcome, ApprovalRequest, ApprovalStatus
 
 class ApprovalQueue:
@@ -30,4 +31,5 @@ class ApprovalQueue:
         request.decided_by = decided_by
         request.note = note
         request.modified_input = modified_input
+        request.resolved_at = datetime.now(timezone.utc)
         return request

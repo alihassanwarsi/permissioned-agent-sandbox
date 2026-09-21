@@ -29,3 +29,9 @@ def test_resolve_records_who_and_outcome():
     resolved = queue.resolve("1", ApprovalOutcome.REJECTED, decided_by="ali", note="not needed")
     assert resolved.decided_by == "ali"
     assert resolved.note == "not needed"
+
+def test_resolve_sets_resolved_at():
+    queue = ApprovalQueue()
+    queue.add(make_request())
+    resolved = queue.resolve("1", ApprovalOutcome.APPROVED, decided_by="ali")
+    assert resolved.resolved_at is not None
