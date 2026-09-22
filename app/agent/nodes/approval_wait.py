@@ -50,6 +50,7 @@ def approval_wait(state: AgentState, registry: ToolRegistry, queue: ApprovalQueu
         state.selected_tool = None
         state.tool_input = None
         state.decision = None
+        state.approval_request_id = None
 
     else:
         state.final_response = f"This action was rejected: {decision.get('note', 'no reason given')}"

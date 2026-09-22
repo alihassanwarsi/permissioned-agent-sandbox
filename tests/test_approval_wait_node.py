@@ -54,3 +54,12 @@ def test_resolved_request_recorded_in_queue(mock_interrupt):
     resolved = queue.get(list(queue._requests.keys())[0])
     assert resolved.outcome == ApprovalOutcome.APPROVED
     assert resolved.decided_by == "ali"
+
+@patch("app.agent.nodes.approval_wait.interrupt")
+def test_replan_clears_approval_request_id(mock_interrupt):
+    mock_interrupt.return_value = {"outcome": "replan", "decided_by": "ali"}
+
+    queue = ApprovalQueue()
+    state = approval_wait(make_state(), build_default_registry(), queue)
+
+    assert state.approval_request_id is None
