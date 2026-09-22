@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Permissioned Agent Sandbox</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { margin-bottom: 0; }
+  .subtitle { color: #666; margin-top: 4px; }
+  section { margin-top: 32px; padding-top: 20px; border-top: 1px solid #ddd; }
+  input, select, textarea { width: 100%; padding: 8px; margin: 6px 0; box-sizing: border-box; font-family: inherit; }
+  button { padding: 8px 16px; margin: 4px 4px 4px 0; cursor: pointer; border: 1px solid #333; background: white; border-radius: 4px; }
+  button:hover { background: #f0f0f0; }
+  button.primary { background: #222; color: white; }
+  .card { border: 1px solid #ddd; border-radius: 6px; padding: 14px; margin: 10px 0; }
+  .status-ok { color: #0a7d2c; }
+  .status-error { color: #c00; }
+  pre { background: #f6f6f6; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 13px; }
+  .muted { color: #888; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<h1>Permissioned Agent Sandbox</h1>
+<p class="subtitle">The model proposes. The system decides.</p>
+
+<section>
+  <h2>Run a request</h2>
+  <input id="userMessage" placeholder="What should the agent do?">
+  <select id="role">
+    <option value="viewer">viewer</option>
+    <option value="analyst">analyst</option>
+    <option value="operator">operator</option>
+    <option value="admin">admin</option>
+  </select>
+  <button class="primary" onclick="runRequest()">Run</button>
+  <div id="runResult"></div>
+</section>
+
+<section>
+  <h2>Pending approvals</h2>
+  <div id="approvalsList" class="muted">Loading...</div>
+</section>
+
+<section>
+  <h2>Trace timeline</h2>
+  <select id="traceSelect" onchange="loadTrace()"></select>
+  <div id="traceSpans"></div>
+</section>
+
+<section>
+  <h2>Safety analytics</h2>
+  <pre id="analytics">Loading...</pre>
+</section>
+
+<script>
+const API_BASE = "http://127.0.0.1:8000";
+
+async function runRequest() {
+  const message = document.getElementById("userMessage").value.trim();
+  const role = document.getElementById("role").value;
+  const resultDiv = document.getElementById("runResult");
+
+  if (!message) {
+    resultDiv.innerHTML = '<p class="status-error">Type something first.</p>';
+    return;
+  }
+
+  resultDiv.innerHTML = "<p>Running...</p>";
+  try {
+    const res = await fetch(`${API_BASE}/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_message: message, role }),
+    });
+    if (!res.ok) throw new Error(`API returned ${res.status}`);
+    const data = await res.json();
+
+    if (data.status === "completed") {
+      resultDiv.innerHTML = `<p class="status-ok">${data.final_response}</p>`;
+    } else if (data.status === "awaiting_approval") {
+      resultDiv.innerHTML = `<p>Needs approval — see below.</p>`;
+    }
+    loadApprovals();
+    loadTraceList();
+    loadAnalytics();
+  } catch (e) {
+    resultDiv.innerHTML = `<p class="status-error">${e.message}</p>`;
+  }
+}
+
+async function loadApprovals() {
+  const container = document.getElementById("approvalsList");
+  try {
+    const res = await fetch(`${API_BASE}/approvals`);
+    const approvals = await res.json();
+
+    if (approvals.length === 0) {
+      container.innerHTML = '<p class="muted">Nothing waiting for approval.</p>';
+      return;
+    }
+
+    container.innerHTML = approvals.map(req => `
+      <div class="card">
+        <strong>${req.tool_name}</strong> — ${req.risk_level} risk<br>
+        <p><b>Arguments:</b> ${JSON.stringify(req.tool_input)}</p>
+        <p><b>Reasoning:</b> ${req.reasoning}</p>
+        <textarea id="mod-${req.request_id}" rows="2">${JSON.stringify(req.tool_input)}</textarea>
+        <div>
+          <button onclick="resolve('${req.request_id}', 'approved')">Approve</button>
+          <button onclick="resolve('${req.request_id}', 'modified')">Modify & Approve</button>
+          <button onclick="resolve('${req.request_id}', 'rejected')">Reject</button>
+          <button onclick="resolve('${req.request_id}', 'replan')">Ask to re-plan</button>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) {
+    container.innerHTML = `<p class="status-error">${e.message}</p>`;
+  }
+}
+
+async function resolve(requestId, outcome) {
+  const body = { outcome, decided_by: "ui-user" };
+
+  if (outcome === "modified") {
+    const raw = document.getElementById(`mod-${requestId}`).value;
+    try {
+      body.modified_input = JSON.parse(raw);
+    } catch (e) {
+      alert("Modified arguments aren't valid JSON.");
+      return;
+    }
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/approvals/${requestId}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`API returned ${res.status}`);
+    const data = await res.json();
+
+    const runResult = document.getElementById("runResult");
+    if (data.status === "completed") {
+      runResult.innerHTML = `<p class="status-ok">✅ Resolved (${outcome}): ${data.final_response}</p>`;
+    } else {
+      runResult.innerHTML = `<p>Resolved (${outcome}) — status: ${data.status}</p>`;
+    }
+
+    loadApprovals();
+    loadTraceList();
+    loadAnalytics();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function loadTraceList() {
+  const select = document.getElementById("traceSelect");
+  try {
+    const res = await fetch(`${API_BASE}/traces`);
+    const traceIds = await res.json();
+
+    select.innerHTML = traceIds.map(id => `<option value="${id}">${id}</option>`).join("");
+    if (traceIds.length > 0) loadTrace();
+  } catch (e) {
+    select.innerHTML = "";
+  }
+}
+
+async function loadTrace() {
+  const select = document.getElementById("traceSelect");
+  const spansDiv = document.getElementById("traceSpans");
+  const traceId = select.value;
+  if (!traceId) {
+    spansDiv.innerHTML = '<p class="muted">No traces yet — run a request above.</p>';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/traces/${traceId}`);
+    const spans = await res.json();
+
+    spansDiv.innerHTML = spans.map(span => {
+      const durationMs = ((span.end_time - span.start_time) / 1e6).toFixed(1);
+      const status = span.attributes.status || "unknown";
+      const icon = status === "success" ? "✅" : status === "error" ? "❌" : "•";
+      return `
+        <div class="card">
+          <strong>${icon} ${span.name}</strong> — ${durationMs}ms
+          <pre>${JSON.stringify(span.attributes, null, 2)}</pre>
+        </div>
+      `;
+    }).join("");
+  } catch (e) {
+    spansDiv.innerHTML = `<p class="status-error">${e.message}</p>`;
+  }
+}
+
+async function loadAnalytics() {
+  const pre = document.getElementById("analytics");
+  try {
+    const res = await fetch(`${API_BASE}/analytics`);
+    const stats = await res.json();
+    pre.textContent = JSON.stringify(stats, null, 2);
+  } catch (e) {
+    pre.textContent = `Error: ${e.message}`;
+  }
+}
+
+loadApprovals();
+loadTraceList();
+loadAnalytics();
+</script>
+
+</body>
+</html>
