@@ -10,7 +10,11 @@ def final_response(state: AgentState) -> AgentState:
     if state.decision == Decision.DENIED:
         state.final_response = f"I'm not able to do that: {state.decision_reason}"
         return state
-    
+
+    if state.decision == Decision.RATE_LIMITED:
+        state.final_response = f"Please wait before trying again: {state.decision_reason}"
+        return state
+
     if state.decision in (Decision.NEEDS_CONFIRMATION, Decision.NEEDS_APPROVAL):
         state.final_response = f"Before I can do that: {state.decision_reason}"
         return state

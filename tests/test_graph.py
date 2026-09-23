@@ -3,6 +3,7 @@ from app.agent.graph import build_graph
 from app.agent.nodes.intake import intake
 from app.approval.queue import ApprovalQueue
 from app.models.user import Role, User
+from app.permissions.rate_limiter import RateLimiter
 from app.tools.registry_setup import build_default_registry
 
 @patch("app.agent.nodes.plan.call_llm")
@@ -18,7 +19,7 @@ def test_low_risk_tool_runs_end_to_end(mock_final_llm, mock_plan_llm, tmp_path, 
     mock_final_llm.return_value = "The file says: hello world"
 
     state = intake("read notes.txt", User(id="1", name="test", role=Role.ANALYST))
-    graph = build_graph(build_default_registry(), ApprovalQueue())
+    graph = build_graph(build_default_registry(), ApprovalQueue(), RateLimiter())
     result = graph.invoke(state, config={"configurable": {"thread_id": "test-1"}})
 
     assert result["final_response"] == "The file says: hello world"
@@ -32,7 +33,7 @@ def test_denied_role_stops_before_execution(mock_plan_llm):
     )
 
     state = intake("email someone", User(id="1", name="test", role=Role.VIEWER))
-    graph = build_graph(build_default_registry(), ApprovalQueue())
+    graph = build_graph(build_default_registry(), ApprovalQueue(), RateLimiter())
     result = graph.invoke(state, config={"configurable": {"thread_id": "test-2"}})
 
     assert result["decision"].value == "denied"
@@ -48,7 +49,7 @@ def test_invalid_tool_input_goes_to_reflection(mock_reflect_llm, mock_plan_llm):
     mock_reflect_llm.return_value = "stop"
 
     state = intake("read something", User(id="1", name="test", role=Role.ANALYST))
-    graph = build_graph(build_default_registry(), ApprovalQueue())
+    graph = build_graph(build_default_registry(), ApprovalQueue(), RateLimiter())
     result = graph.invoke(state, config={"configurable": {"thread_id": "test-3"}})
 
-    assert "couldn't complete" in result["final_response"].lower() or "couldn't" in result["final_response"].lower()
+    assert "couldn't" in result["final_response"].lower()

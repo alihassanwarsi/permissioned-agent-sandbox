@@ -13,6 +13,7 @@ from app.agent.nodes.reflection import reflect
 from app.agent.nodes.select_tool import select_tool
 from app.models.agent_state import AgentState
 from app.permissions.checker import Decision
+from app.permissions.rate_limiter import RateLimiter
 from app.tools.registry import ToolRegistry
 from app.approval.queue import ApprovalQueue
 from app.observability.tracing import build_tracer_provider, get_tracer
@@ -43,6 +44,7 @@ def route_after_permission(state: AgentState) -> str:
     return {
         Decision.ALLOWED: "execute_tool",
         Decision.DENIED: "final_response",
+        Decision.RATE_LIMITED: "final_response",
         Decision.NEEDS_CONFIRMATION: "approval_wait",
         Decision.NEEDS_APPROVAL: "approval_wait",
     }[state.decision]
@@ -64,13 +66,13 @@ def route_after_approval(state: AgentState) -> str:
         return "plan"
     return "execute_tool"
 
-def build_graph(registry: ToolRegistry, queue: ApprovalQueue):
+def build_graph(registry: ToolRegistry, queue: ApprovalQueue, rate_limiter: RateLimiter):
     graph = StateGraph(AgentState)
 
     graph.add_node("plan", traced_node(_tracer, "plan", partial(plan, registry=registry)))
     graph.add_node("select_tool", traced_node(_tracer, "select_tool", partial(select_tool, registry=registry)))
-    graph.add_node("permission_check", traced_node(_tracer, "permission_check", partial(permission_check, registry=registry)))
-    graph.add_node("execute_tool", traced_node(_tracer, "execute_tool", partial(execute_tool, registry=registry)))
+    graph.add_node("permission_check", traced_node(_tracer, "permission_check", partial(permission_check, registry=registry, rate_limiter=rate_limiter)))
+    graph.add_node("execute_tool", traced_node(_tracer, "execute_tool", partial(execute_tool, registry=registry, rate_limiter=rate_limiter)))
     graph.add_node("reflection", traced_node(_tracer, "reflection", reflect))
     graph.add_node("approval_wait", traced_node(_tracer, "approval_wait", partial(approval_wait, registry=registry, queue=queue)))
     graph.add_node("final_response", traced_node(_tracer, "final_response", final_response))
@@ -87,8 +89,8 @@ def build_graph(registry: ToolRegistry, queue: ApprovalQueue):
 
     return graph.compile(checkpointer=_checkpointer)
 
-def run_agent(state: AgentState, registry: ToolRegistry, queue: ApprovalQueue) -> dict:
-    compiled_graph = build_graph(registry, queue)
+def run_agent(state: AgentState, registry: ToolRegistry, queue: ApprovalQueue, rate_limiter: RateLimiter) -> dict:
+    compiled_graph = build_graph(registry, queue, rate_limiter)
     thread_id = state.task_id or str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
 
@@ -98,8 +100,8 @@ def run_agent(state: AgentState, registry: ToolRegistry, queue: ApprovalQueue) -
         return {"status": "awaiting_approval", "thread_id": thread_id}
     return {"status": "completed", "final_response": result["final_response"]}
 
-def resume_agent(thread_id: str, decision: dict, registry: ToolRegistry, queue: ApprovalQueue) -> dict:
-    compiled_graph = build_graph(registry, queue)
+def resume_agent(thread_id: str, decision: dict, registry: ToolRegistry, queue: ApprovalQueue, rate_limiter: RateLimiter) -> dict:
+    compiled_graph = build_graph(registry, queue, rate_limiter)
     config = {"configurable": {"thread_id": thread_id}}
 
     result = compiled_graph.invoke(Command(resume=decision), config=config)

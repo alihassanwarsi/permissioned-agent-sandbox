@@ -9,6 +9,7 @@ from app.models.user import Role, User
 from app.models.approval import ApprovalStatus
 from app.observability.analytics import compute_safety_stats
 from app.tools.registry_setup import build_default_registry
+from app.permissions.rate_limiter import RateLimiter
 
 app = FastAPI(title="Permissioned Agent Sandbox")
 
@@ -21,6 +22,7 @@ app.add_middleware(
 
 _registry = build_default_registry()
 _queue = ApprovalQueue()
+_rate_limiter = RateLimiter()
 
 class RunRequest(BaseModel):
     user_message: str
@@ -48,7 +50,7 @@ def health_check():
 def run(request: RunRequest):
     user = User(id="user", name="Ali", role=request.role)
     state = intake(request.user_message, user)
-    return run_agent(state, _registry, _queue)
+    return run_agent(state, _registry, _queue, _rate_limiter)
 
 @app.get("/approvals")
 def list_approvals():
@@ -71,7 +73,7 @@ def resolve_approval(request_id: str, body: ResolveRequest):
         "modified_input": body.modified_input,
     }
 
-    return resume_agent(pending.thread_id, decision, _registry, _queue)
+    return resume_agent(pending.thread_id, decision, _registry, _queue, _rate_limiter)
 
 @app.get("/traces")
 def list_traces():
