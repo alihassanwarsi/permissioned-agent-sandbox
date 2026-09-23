@@ -6,6 +6,7 @@ from app.agent.graph import get_trace_store, run_agent, resume_agent
 from app.agent.nodes.intake import intake
 from app.approval.queue import ApprovalQueue
 from app.models.user import Role, User
+from app.models.approval import ApprovalStatus
 from app.observability.analytics import compute_safety_stats
 from app.tools.registry_setup import build_default_registry
 
@@ -60,12 +61,16 @@ def resolve_approval(request_id: str, body: ResolveRequest):
     except KeyError:
         raise HTTPException(status_code=404, detail="No such approval request")
 
+    if pending.status != ApprovalStatus.PENDING:
+        raise HTTPException(status_code=409, detail="Approval request has already been resolved")
+
     decision = {
         "outcome": body.outcome,
         "decided_by": body.decided_by,
         "note": body.note,
         "modified_input": body.modified_input,
     }
+
     return resume_agent(pending.thread_id, decision, _registry, _queue)
 
 @app.get("/traces")

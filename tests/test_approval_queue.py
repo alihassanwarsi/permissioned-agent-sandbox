@@ -35,3 +35,15 @@ def test_resolve_sets_resolved_at():
     queue.add(make_request())
     resolved = queue.resolve("1", ApprovalOutcome.APPROVED, decided_by="ali")
     assert resolved.resolved_at is not None
+
+def test_resolving_already_resolved_request_fails():
+    queue = ApprovalQueue()
+    queue.add(make_request())
+
+    queue.resolve("1", ApprovalOutcome.APPROVED, decided_by="ali")
+
+    try:
+        queue.resolve("1", ApprovalOutcome.REJECTED, decided_by="ali")
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "already been resolved" in str(exc)

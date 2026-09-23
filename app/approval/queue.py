@@ -26,10 +26,15 @@ class ApprovalQueue:
             modified_input: dict | None = None
     ) -> ApprovalRequest:
         request = self._requests[request_id]
+
+        if request.status == ApprovalStatus.RESOLVED:
+            raise ValueError(f"Approval request '{request_id}' has already been resolved.")
+
         request.status = ApprovalStatus.RESOLVED
         request.outcome = outcome
         request.decided_by = decided_by
         request.note = note
         request.modified_input = modified_input
         request.resolved_at = datetime.now(timezone.utc)
+
         return request
