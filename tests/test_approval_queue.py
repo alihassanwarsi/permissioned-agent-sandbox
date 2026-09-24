@@ -1,11 +1,12 @@
 from app.approval.queue import ApprovalQueue
-from app.models.approval import ApprovalOutcome, ApprovalRequest
+from app.models.approval import ApprovalOutcome, ApprovalRequest, ApprovalKind
 from app.models.tool_spec import RiskLevel
 
 def make_request(request_id="1"):
     return ApprovalRequest(
         request_id=request_id,
         thread_id="t1",
+        kind=ApprovalKind.APPROVAL,
         tool_name="send_email",
         tool_input={"to": "x@x.com"},
         risk_level=RiskLevel.HIGH,

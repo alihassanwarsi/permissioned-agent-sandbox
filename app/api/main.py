@@ -73,7 +73,10 @@ def resolve_approval(request_id: str, body: ResolveRequest):
         "modified_input": body.modified_input,
     }
 
-    return resume_agent(pending.thread_id, decision, _registry, _queue, _rate_limiter)
+    try:
+        return resume_agent(pending.thread_id, decision, _registry, _queue, _rate_limiter)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/traces")
 def list_traces():

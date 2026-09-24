@@ -63,3 +63,29 @@ def test_replan_clears_approval_request_id(mock_interrupt):
     state = approval_wait(make_state(), build_default_registry(), queue)
 
     assert state.approval_request_id is None
+
+@patch("app.agent.nodes.approval_wait.interrupt")
+def test_confirmation_rejects_modify_outcome(mock_interrupt):
+    mock_interrupt.return_value = {"outcome": "modified", "decided_by": "ali"}
+
+    state = make_state()
+    state.decision = Decision.NEEDS_CONFIRMATION
+
+    queue = ApprovalQueue()
+    try:
+        approval_wait(state, build_default_registry(), queue)
+        assert False, "Expected ValueError"
+    except ValueError as e:
+        assert "isn't allowed for a confirmation" in str(e)
+
+@patch("app.agent.nodes.approval_wait.interrupt")
+def test_confirmation_allows_approve(mock_interrupt):
+    mock_interrupt.return_value = {"outcome": "approved", "decided_by": "ali"}
+
+    state = make_state()
+    state.decision = Decision.NEEDS_CONFIRMATION
+
+    queue = ApprovalQueue()
+    result = approval_wait(state, build_default_registry(), queue)
+
+    assert result.decision == Decision.ALLOWED

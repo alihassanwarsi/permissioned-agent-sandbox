@@ -2,27 +2,35 @@ import uuid
 from langgraph.types import interrupt
 from app.approval.queue import ApprovalQueue
 from app.models.agent_state import AgentState
-from app.models.approval import ApprovalOutcome, ApprovalRequest
+from app.models.approval import ApprovalKind, ApprovalOutcome, ApprovalRequest
 from app.permissions.checker import Decision
 from app.tools.registry import ToolRegistry
 
 def approval_wait(state: AgentState, registry: ToolRegistry, queue: ApprovalQueue) -> AgentState:
     tool = registry.get(state.selected_tool)
+    kind = (
+        ApprovalKind.CONFIRMATION
+        if state.decision == Decision.NEEDS_CONFIRMATION
+        else ApprovalKind.APPROVAL
+    )
 
     if not state.approval_request_id:
         state.approval_request_id = str(uuid.uuid4())
         request = ApprovalRequest(
             request_id=state.approval_request_id,
             thread_id=state.task_id,
+            kind=kind,
             tool_name=tool.name,
             tool_input=state.tool_input or {},
             risk_level=tool.risk_level,
             reasoning=state.plan or "",
         )
+
         queue.add(request)
 
     decision = interrupt({
         "request_id": state.approval_request_id,
+        "kind": kind.value,
         "task_id": state.task_id,
         "selected_tool": state.selected_tool,
         "tool_input": state.tool_input,
@@ -30,6 +38,10 @@ def approval_wait(state: AgentState, registry: ToolRegistry, queue: ApprovalQueu
     })
 
     outcome = ApprovalOutcome(decision.get("outcome"))
+
+    if kind == ApprovalKind.CONFIRMATION and outcome in (ApprovalOutcome.MODIFIED, ApprovalOutcome.REPLAN):
+        raise ValueError(f"'{outcome.value}' isn't allowed for a confirmation.")
+
     queue.resolve(
         state.approval_request_id,
         outcome=outcome,
