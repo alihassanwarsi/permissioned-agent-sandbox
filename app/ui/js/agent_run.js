@@ -1,19 +1,73 @@
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+
+function safeJson(value) {
+  return escapeHtml(
+    JSON.stringify(value, null, 2)
+  );
+}
+
+
 async function startAgentRun() {
-  const msg = document.getElementById('run-message').value.trim();
-  const role = document.getElementById('run-role').value;
+  const msg = document
+    .getElementById('run-message')
+    .value
+    .trim();
+
+  const role =
+    document.getElementById('run-role').value;
 
   activeQuery = msg;
 
-  const runBtn = document.getElementById('run-btn');
+  const runBtn =
+    document.getElementById('run-btn');
 
-  const card = document.getElementById('run-interaction-card');
-  const title = document.getElementById('interaction-status-title');
-  const badge = document.getElementById('interaction-badge');
-  const loading = document.getElementById('interaction-loading');
-  const loadingText = document.getElementById('loading-text');
-  const approvalContainer = document.getElementById('approval-container');
-  const responseContainer = document.getElementById('final-response-container');
-  const responseText = document.getElementById('final-response-text');
+  const card =
+    document.getElementById(
+      'run-interaction-card'
+    );
+
+  const title =
+    document.getElementById(
+      'interaction-status-title'
+    );
+
+  const badge =
+    document.getElementById(
+      'interaction-badge'
+    );
+
+  const loading =
+    document.getElementById(
+      'interaction-loading'
+    );
+
+  const loadingText =
+    document.getElementById(
+      'loading-text'
+    );
+
+  const approvalContainer =
+    document.getElementById(
+      'approval-container'
+    );
+
+  const responseContainer =
+    document.getElementById(
+      'final-response-container'
+    );
+
+  const responseText =
+    document.getElementById(
+      'final-response-text'
+    );
 
   if (!msg) {
     alert('Please enter a message.');
@@ -22,7 +76,8 @@ async function startAgentRun() {
 
   runBtn.disabled = true;
 
-  traceIdsBeforeRun = await fetchTraceIdsSafe();
+  traceIdsBeforeRun =
+    await fetchTraceIdsSafe();
 
   card.style.display = 'block';
 
@@ -30,136 +85,201 @@ async function startAgentRun() {
   approvalContainer.innerHTML = '';
 
   responseContainer.style.display = 'none';
+
   responseText.innerText = '';
+  responseText.style.color = '';
 
   title.innerText = 'Processing Task';
+
   badge.className = 'badge badge-low';
   badge.innerText = 'RUNNING';
 
   loading.style.display = 'block';
+
   loadingText.innerText =
     'Agent is planning and evaluating permissions...';
 
   try {
-    const res = await fetch(`${API_BASE}/run`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        user_message: msg,
-        role: role
-      })
-    });
+    const res = await fetch(
+      `${API_BASE}/run`,
+      {
+        method: 'POST',
+
+        headers: {
+          'Content-Type': 'application/json'
+        },
+
+        body: JSON.stringify({
+          user_message: msg,
+          role: role
+        })
+      }
+    );
 
     const data = await res.json();
 
-    await rememberNewTracesForQuery(activeQuery);
+    await rememberNewTracesForQuery(
+      activeQuery
+    );
 
     loading.style.display = 'none';
 
     if (data.status === 'awaiting_approval') {
       activeThreadId = data.thread_id;
 
-      title.innerText = 'Approval Required';
+      title.innerText =
+        'Approval Required';
 
-      badge.className = 'badge badge-medium';
-      badge.innerText = 'WAITING FOR INPUT';
+      badge.className =
+        'badge badge-medium';
 
-      await loadInPlaceApproval(data.thread_id);
+      badge.innerText =
+        'WAITING FOR INPUT';
+
+      await loadInPlaceApproval(
+        data.thread_id
+      );
     } else {
-      title.innerText = 'Task Completed';
+      title.innerText =
+        'Task Completed';
 
-      badge.className = 'badge badge-low';
-      badge.innerText = 'COMPLETED';
+      badge.className =
+        'badge badge-low';
 
-      responseContainer.style.display = 'block';
+      badge.innerText =
+        'COMPLETED';
+
+      responseContainer.style.display =
+        'block';
+
+      responseText.style.color = '';
 
       responseText.innerText =
-        data.final_response || 'No response text returned.';
+        data.final_response ||
+        'No response text returned.';
     }
   } catch (err) {
     loading.style.display = 'none';
 
-    title.innerText = 'Execution Failed';
+    title.innerText =
+      'Execution Failed';
 
-    badge.className = 'badge badge-high';
-    badge.innerText = 'ERROR';
+    badge.className =
+      'badge badge-high';
 
-    responseContainer.style.display = 'block';
+    badge.innerText =
+      'ERROR';
 
-    responseText.innerHTML = `
-      <span style="color:var(--danger)">
-        Error connecting to backend: ${err.message}.
-        Ensure backend is running at ${API_BASE}
-      </span>
-    `;
+    responseContainer.style.display =
+      'block';
+
+    responseText.style.color =
+      'var(--danger)';
+
+    responseText.innerText =
+      `Error connecting to backend: ${err.message}. ` +
+      `Ensure backend is running at ${API_BASE}`;
   } finally {
     runBtn.disabled = false;
   }
 }
 
-async function loadInPlaceApproval(threadId) {
+
+async function loadInPlaceApproval(
+  threadId
+) {
   const container =
-    document.getElementById('approval-container');
+    document.getElementById(
+      'approval-container'
+    );
 
   container.style.display = 'block';
 
   container.innerHTML = `
-    <div style="font-size:13px; color:var(--text-muted);">
+    <div
+      style="
+        font-size:13px;
+        color:var(--text-muted);
+      "
+    >
       <span class="loading-spinner"></span>
       Retrieving approval parameters...
     </div>
   `;
 
   try {
-    const res = await fetch(`${API_BASE}/approvals`);
+    const res = await fetch(
+      `${API_BASE}/approvals`
+    );
+
     const items = await res.json();
 
     const req =
-      items.find(i => i.thread_id === threadId) ||
+      items.find(
+        i => i.thread_id === threadId
+      ) ||
       items[items.length - 1];
 
     if (!req) {
       container.innerHTML = `
-        <p style="color:var(--warning); font-size:13px;">
+        <p
+          style="
+            color:var(--warning);
+            font-size:13px;
+          "
+        >
           No pending approval found in queue.
         </p>
       `;
+
       return;
     }
 
     activeRequestId = req.request_id;
 
     const isHighRisk =
-      (req.risk_level || '').toLowerCase() === 'high';
+      (req.risk_level || '')
+        .toLowerCase() === 'high';
 
     const isMediumRisk =
-      (req.risk_level || '').toLowerCase() === 'medium';
+      (req.risk_level || '')
+        .toLowerCase() === 'medium';
 
     const isConfirmation =
       req.kind === 'confirmation';
 
-    if (isMediumRisk || isConfirmation) {
-
+    if (
+      isMediumRisk ||
+      isConfirmation
+    ) {
       container.innerHTML = `
         <div
           class="approval-box"
           id="box-${req.request_id}"
         >
-          <div class="approval-box-header">
+          <div
+            class="approval-box-header"
+          >
+            <div
+              class="approval-box-title"
+            >
+              <span
+                style="font-size:16px;"
+              >
+                ⚠️
+              </span>
 
-            <div class="approval-box-title">
-              <span style="font-size:16px;">⚠️</span>
               <span>
-                Confirmation Required: Are you sure?
+                Confirmation Required:
+                Are you sure?
               </span>
             </div>
 
-            <span class="badge badge-medium">
+            <span
+              class="badge badge-medium"
+            >
               MEDIUM RISK
             </span>
-
           </div>
 
           <div
@@ -170,20 +290,23 @@ async function loadInPlaceApproval(threadId) {
             "
           >
             The agent proposes to run
-            <b>${req.tool_name}</b>.
+            <b>${escapeHtml(
+              req.tool_name
+            )}</b>.
             Do you want to proceed?
           </div>
 
           <div
-            style="font-size:13px; margin-bottom:4px;"
+            style="
+              font-size:13px;
+              margin-bottom:4px;
+            "
           >
             <b>Tool parameters:</b>
           </div>
 
-          <pre>${JSON.stringify(
-            req.tool_input,
-            null,
-            2
+          <pre>${safeJson(
+            req.tool_input
           )}</pre>
 
           <div
@@ -225,7 +348,9 @@ async function loadInPlaceApproval(threadId) {
             <input
               type="text"
               id="reject-note-${req.request_id}"
-              placeholder="Optional reason for rejection..."
+              placeholder="
+                Optional reason for rejection...
+              "
               style="
                 width:70%;
                 margin-right:8px;
@@ -235,7 +360,9 @@ async function loadInPlaceApproval(threadId) {
             <button
               class="btn-danger"
               onclick="
-                confirmReject('${req.request_id}')
+                confirmReject(
+                  '${req.request_id}'
+                )
               "
             >
               Confirm Reject
@@ -246,30 +373,36 @@ async function loadInPlaceApproval(threadId) {
             id="decision-banner-${req.request_id}"
             style="display:none;"
           ></div>
-
         </div>
       `;
     } else {
-
       container.innerHTML = `
         <div
           class="approval-box high-risk"
           id="box-${req.request_id}"
         >
+          <div
+            class="approval-box-header"
+          >
+            <div
+              class="approval-box-title"
+            >
+              <span
+                style="font-size:16px;"
+              >
+                🚨
+              </span>
 
-          <div class="approval-box-header">
-
-            <div class="approval-box-title">
-              <span style="font-size:16px;">🚨</span>
               <span>
                 High Risk Tool Action Approval
               </span>
             </div>
 
-            <span class="badge badge-high">
+            <span
+              class="badge badge-high"
+            >
               HIGH RISK
             </span>
-
           </div>
 
           <div
@@ -279,7 +412,9 @@ async function loadInPlaceApproval(threadId) {
             "
           >
             Action:
-            <b>${req.tool_name}</b>
+            <b>${escapeHtml(
+              req.tool_name
+            )}</b>
           </div>
 
           <div
@@ -290,8 +425,11 @@ async function loadInPlaceApproval(threadId) {
             "
           >
             <b>Reasoning:</b>
-            ${req.reasoning ||
-            'Agent requested execution'}
+
+            ${escapeHtml(
+              req.reasoning ||
+              'Agent requested execution'
+            )}
           </div>
 
           <div
@@ -306,17 +444,14 @@ async function loadInPlaceApproval(threadId) {
 
           <pre
             id="display-input-${req.request_id}"
-          >${JSON.stringify(
-            req.tool_input,
-            null,
-            2
+          >${safeJson(
+            req.tool_input
           )}</pre>
 
           <div
             id="btn-group-${req.request_id}"
             class="action-row"
           >
-
             <button
               class="btn-success"
               onclick="
@@ -362,7 +497,6 @@ async function loadInPlaceApproval(threadId) {
             >
               Replan
             </button>
-
           </div>
 
           <div
@@ -372,11 +506,12 @@ async function loadInPlaceApproval(threadId) {
               margin-top:12px;
             "
           >
-
             <input
               type="text"
               id="reject-note-${req.request_id}"
-              placeholder="Reason for rejection..."
+              placeholder="
+                Reason for rejection...
+              "
               style="
                 width:70%;
                 margin-right:8px;
@@ -404,7 +539,6 @@ async function loadInPlaceApproval(threadId) {
             >
               Cancel
             </button>
-
           </div>
 
           <div
@@ -412,7 +546,6 @@ async function loadInPlaceApproval(threadId) {
             class="modify-editor"
             style="display:none;"
           >
-
             <div
               style="
                 font-size:13px;
@@ -430,10 +563,8 @@ async function loadInPlaceApproval(threadId) {
                 font-family:monospace;
                 font-size:12px;
               "
-            >${JSON.stringify(
-              req.tool_input,
-              null,
-              2
+            >${safeJson(
+              req.tool_input
             )}</textarea>
 
             <div
@@ -443,7 +574,6 @@ async function loadInPlaceApproval(threadId) {
                 gap:8px;
               "
             >
-
               <button
                 class="btn-success"
                 onclick="
@@ -465,16 +595,13 @@ async function loadInPlaceApproval(threadId) {
               >
                 Cancel
               </button>
-
             </div>
-
           </div>
 
           <div
             id="decision-banner-${req.request_id}"
             style="display:none;"
           ></div>
-
         </div>
       `;
     }
@@ -487,13 +614,16 @@ async function loadInPlaceApproval(threadId) {
         "
       >
         Error loading approval details:
-        ${err.message}
+        ${escapeHtml(err.message)}
       </p>
     `;
   }
 }
 
-function showRejectInput(requestId) {
+
+function showRejectInput(
+  requestId
+) {
   document.getElementById(
     `btn-group-${requestId}`
   ).style.display = 'none';
@@ -503,7 +633,10 @@ function showRejectInput(requestId) {
   ).style.display = 'flex';
 }
 
-function cancelReject(requestId) {
+
+function cancelReject(
+  requestId
+) {
   document.getElementById(
     `reject-note-box-${requestId}`
   ).style.display = 'none';
@@ -513,7 +646,10 @@ function cancelReject(requestId) {
   ).style.display = 'flex';
 }
 
-function confirmReject(requestId) {
+
+function confirmReject(
+  requestId
+) {
   const noteInput =
     document.getElementById(
       `reject-note-${requestId}`
@@ -532,7 +668,10 @@ function confirmReject(requestId) {
   );
 }
 
-function toggleModifyEditor(requestId) {
+
+function toggleModifyEditor(
+  requestId
+) {
   const box =
     document.getElementById(
       `modify-box-${requestId}`
@@ -552,7 +691,10 @@ function toggleModifyEditor(requestId) {
   }
 }
 
-function submitModifiedDecision(requestId) {
+
+function submitModifiedDecision(
+  requestId
+) {
   const textarea =
     document.getElementById(
       `modify-input-${requestId}`
@@ -560,7 +702,9 @@ function submitModifiedDecision(requestId) {
 
   try {
     const parsed =
-      JSON.parse(textarea.value.trim());
+      JSON.parse(
+        textarea.value.trim()
+      );
 
     executeDecision(
       requestId,
@@ -572,6 +716,7 @@ function submitModifiedDecision(requestId) {
     alert('Invalid JSON formatting.');
   }
 }
+
 
 async function executeDecision(
   requestId,
@@ -639,14 +784,17 @@ async function executeDecision(
       outcome === 'modified'
         ? 'approved'
         : outcome === 'rejected'
-        ? 'rejected'
-        : 'replan'
+          ? 'rejected'
+          : 'replan'
     }`;
 
   banner.innerHTML = `
     <span class="loading-spinner"></span>
-    Applying decision (${outcome.toUpperCase()})
-    & resuming agent...
+    Applying decision (
+      ${escapeHtml(
+        outcome.toUpperCase()
+      )}
+    ) & resuming agent...
   `;
 
   try {
@@ -654,9 +802,11 @@ async function executeDecision(
       `${API_BASE}/approvals/${requestId}/resolve`,
       {
         method: 'POST',
+
         headers: {
           'Content-Type': 'application/json'
         },
+
         body: JSON.stringify({
           outcome: outcome,
           decided_by: 'Ali',
@@ -682,21 +832,39 @@ async function executeDecision(
 
     if (outcome === 'approved') {
       banner.innerHTML =
-        `✓ <b>Approved:</b> Action confirmed and executed.`;
-    } else if (outcome === 'modified') {
+        '✓ <b>Approved:</b> ' +
+        'Action confirmed and executed.';
+    } else if (
+      outcome === 'modified'
+    ) {
       banner.innerHTML =
-        `✓ <b>Modified & Approved:</b> Action executed with modified parameters.`;
-    } else if (outcome === 'rejected') {
+        '✓ <b>Modified & Approved:</b> ' +
+        'Action executed with modified parameters.';
+    } else if (
+      outcome === 'rejected'
+    ) {
       banner.innerHTML =
-        `✗ <b>Rejected:</b> Action denied (${note || 'No reason specified'}).`;
-    } else if (outcome === 'replan') {
+        `✗ <b>Rejected:</b> ` +
+        `Action denied (${escapeHtml(
+          note || 'No reason specified'
+        )}).`;
+    } else if (
+      outcome === 'replan'
+    ) {
       banner.innerHTML =
-        `⟳ <b>Replanning:</b> Agent prompted to devise an alternative approach.`;
+        '⟳ <b>Replanning:</b> ' +
+        'Agent prompted to devise an alternative approach.';
     }
 
-    responseContainer.style.display = 'block';
+    responseContainer.style.display =
+      'block';
 
-    if (data.status === 'awaiting_approval') {
+    responseText.style.color = '';
+
+    if (
+      data.status ===
+      'awaiting_approval'
+    ) {
       title.innerText =
         'Next Step Awaiting Approval';
 
@@ -727,7 +895,6 @@ async function executeDecision(
         data.final_response ||
         'No response text returned.';
     }
-
   } catch (err) {
     banner.className =
       'decision-banner rejected';
