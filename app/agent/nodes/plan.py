@@ -1,11 +1,14 @@
 import json
+from pydantic import ValidationError
 from app.agent.llm import call_llm
 from app.agent.prompts import build_planning_prompt
 from app.models.agent_state import AgentState
+from app.models.plan import PlanOutput
 from app.tools.registry import ToolRegistry
 
 def plan(state: AgentState, registry: ToolRegistry) -> AgentState:
     prompt = build_planning_prompt(state.user_message, registry)
+
     raw_response = call_llm(prompt)
 
     try:
@@ -16,7 +19,16 @@ def plan(state: AgentState, registry: ToolRegistry) -> AgentState:
         state.tool_input = None
         return state
 
-    state.plan = parsed.get("reasoning")
-    state.selected_tool =  parsed.get("tool")
-    state.tool_input = parsed.get("input")
+    try:
+        plan_output = PlanOutput.model_validate(parsed)
+    except ValidationError:
+        state.plan = raw_response
+        state.selected_tool = None
+        state.tool_input = None
+        return state
+
+    state.plan = plan_output.reasoning
+    state.selected_tool = plan_output.tool
+    state.tool_input = plan_output.input
+
     return state

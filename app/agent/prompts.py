@@ -2,8 +2,10 @@ from app.tools.registry import ToolRegistry
 
 def get_tools_list(registry: ToolRegistry) -> str:
     return "\n".join(
-        f"{tool.name}: {tool.description}" for tool in registry.all_tools()
-    )
+    f"{tool.name}: {tool.description}\n"
+    f"Input schema: {tool.input_schema.model_json_schema()}"
+    for tool in registry.all_tools()
+)
 
 def build_planning_prompt(user_message: str, registry: ToolRegistry) -> str:
     tools_list = get_tools_list(registry)
