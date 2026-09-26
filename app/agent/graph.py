@@ -94,7 +94,11 @@ def run_agent(state: AgentState, registry: ToolRegistry, queue: ApprovalQueue, r
     thread_id = state.task_id or str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
 
-    result = compiled_graph.invoke(state, config=config)
+    with _tracer.start_as_current_span("agent.run") as span:
+        span.set_attribute("task.id", thread_id)
+        span.set_attribute("agent.phase", "initial_run")
+
+        result = compiled_graph.invoke(state, config=config)
 
     if "__interrupt__" in result:
         return {"status": "awaiting_approval", "thread_id": thread_id}
@@ -104,7 +108,11 @@ def resume_agent(thread_id: str, decision: dict, registry: ToolRegistry, queue: 
     compiled_graph = build_graph(registry, queue, rate_limiter)
     config = {"configurable": {"thread_id": thread_id}}
 
-    result = compiled_graph.invoke(Command(resume=decision), config=config)
+    with _tracer.start_as_current_span("agent.resume") as span:
+        span.set_attribute("task.id", thread_id)
+        span.set_attribute("agent.phase", "resume")
+
+        result = compiled_graph.invoke(Command(resume=decision), config=config)
 
     if "__interrupt__" in result:
         return {"status": "awaiting_approval", "thread_id": thread_id}
