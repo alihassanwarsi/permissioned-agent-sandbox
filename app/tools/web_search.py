@@ -1,11 +1,13 @@
-from pydantic import BaseModel, ConfigDict
-from app.models.user import Role
+from pydantic import BaseModel, ConfigDict, Field
+from tavily import TavilyClient
+from app.config import settings
 from app.models.tool_spec import RiskLevel, ToolSpec
+from app.models.user import Role
 
 class WebSearchInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     query: str
-    max_results: int = 5
+    max_results: int = Field(default=5, ge=1, le=10)
 
 class SearchResult(BaseModel):
     title: str
@@ -15,33 +17,32 @@ class SearchResult(BaseModel):
 class WebSearchOutput(BaseModel):
     results: list[SearchResult]
 
-_MOCK_RESULTS = [
-    SearchResult(
-        title="Mock result 1",
-        url="https://example.com/1",
-        snippet="This is the 1st mock search result."
-    ),
-    SearchResult(
-        title="Mock result 2",
-        url="https://example.com/2",
-        snippet="This is the 2nd mock search result"
-    ),
-    SearchResult(
-        title="Mock result 3",
-        url="https://example.com/3",
-        snippet="This is the 3rd mock search result"
-    ),
-]
-
 def web_search(input: WebSearchInput) -> WebSearchOutput:
-    if input.max_results < 1:
-        raise ValueError("max_results must be at least 1.")
-    print(f"query: {input.query}, max_results: {input.max_results}")
-    return WebSearchOutput(results=_MOCK_RESULTS[:input.max_results])
+    if not settings.tavily_api_key:
+        raise RuntimeError("TAVILY_API_KEY is required to perform web searches.")
+
+    client = TavilyClient(api_key=settings.tavily_api_key)
+
+    response = client.search(
+        query=input.query,
+        max_results=input.max_results,
+        search_depth="basic"
+    )
+
+    results = [
+        SearchResult(
+            title=item.get("title", ""),
+            url=item.get("url", ""),
+            snippet=item.get("content", ""),
+        )
+        for item in response.get("results", [])
+    ]
+
+    return WebSearchOutput(results=results)
 
 web_search_tool = ToolSpec(
     name="web_search",
-    description="Searches the web for a query and returns matching results.",
+    description="Searches the live web for current information and returns relevant results.",
     input_schema=WebSearchInput,
     output_schema=WebSearchOutput,
     handler=web_search,
