@@ -1,4 +1,5 @@
 from opentelemetry.trace import Status, StatusCode
+from langgraph.errors import GraphBubbleUp
 
 def traced_node(tracer, node_name: str, node_fn):
 
@@ -8,6 +9,10 @@ def traced_node(tracer, node_name: str, node_fn):
 
             try:
                 result = node_fn(state)
+                
+            except GraphBubbleUp:
+                raise
+
             except Exception as exc:
                 span.record_exception(exc)
                 span.set_status(Status(StatusCode.ERROR, str(exc)))
