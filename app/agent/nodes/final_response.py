@@ -1,5 +1,5 @@
 from app.agent.llm import call_llm
-from app.agent.prompts import build_direct_answer_prompt, build_result_prompt
+from app.agent.prompts import build_direct_answer_prompt, build_result_prompt, build_search_result_prompt
 from app.models.agent_state import AgentState
 from app.permissions.checker import Decision
 
@@ -20,7 +20,10 @@ def final_response(state: AgentState) -> AgentState:
         return state
 
     if state.tool_result is not None:
-        prompt = build_result_prompt(state.user_message, state.tool_result)
+        if state.selected_tool == "web_search":
+            prompt = build_search_result_prompt(state.user_message, state.tool_result)
+        else:
+            prompt = build_result_prompt(state.user_message, state.tool_result)
         state.final_response = call_llm(prompt)
         return state
 
