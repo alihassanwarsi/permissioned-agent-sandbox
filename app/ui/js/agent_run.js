@@ -1,17 +1,17 @@
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
-
-
 function safeJson(value) {
   return escapeHtml(
     JSON.stringify(value, null, 2)
   );
+}
+
+function cleanAgentResponse(text) {
+  return String(text ?? '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\[(.*?)\]\((.*?)\)/g, '$1 ($2)')
+    .trim();
 }
 
 
@@ -139,25 +139,28 @@ async function startAgentRun() {
       await loadInPlaceApproval(
         data.thread_id
       );
-    } else {
-      title.innerText =
-        'Task Completed';
 
-      badge.className =
-        'badge badge-low';
-
-      badge.innerText =
-        'COMPLETED';
-
-      responseContainer.style.display =
-        'block';
-
-      responseText.style.color = '';
-
-      responseText.innerText =
-        data.final_response ||
-        'No response text returned.';
+      return;
     }
+
+    title.innerText = 'Task Completed';
+
+    badge.className =
+      'badge badge-low';
+
+    badge.innerText = 'COMPLETED';
+
+    responseContainer.style.display =
+      'block';
+
+    responseText.style.color = '';
+
+    responseText.innerText =
+      cleanAgentResponse(
+        data.final_response ||
+        'No response text returned.'
+      );
+
   } catch (err) {
     loading.style.display = 'none';
 
@@ -179,6 +182,7 @@ async function startAgentRun() {
     responseText.innerText =
       `Error connecting to backend: ${err.message}. ` +
       `Ensure backend is running at ${API_BASE}`;
+
   } finally {
     runBtn.disabled = false;
   }
@@ -216,7 +220,7 @@ async function loadInPlaceApproval(
 
     const req =
       items.find(
-        i => i.thread_id === threadId
+        item => item.thread_id === threadId
       ) ||
       items[items.length - 1];
 
@@ -237,10 +241,6 @@ async function loadInPlaceApproval(
 
     activeRequestId = req.request_id;
 
-    const isHighRisk =
-      (req.risk_level || '')
-        .toLowerCase() === 'high';
-
     const isMediumRisk =
       (req.risk_level || '')
         .toLowerCase() === 'medium';
@@ -257,29 +257,18 @@ async function loadInPlaceApproval(
           class="approval-box"
           id="box-${req.request_id}"
         >
-          <div
-            class="approval-box-header"
-          >
-            <div
-              class="approval-box-title"
-            >
-              <span
-                style="font-size:16px;"
-              >
-                ⚠️
-              </span>
+          <div class="approval-box-header">
 
+            <div class="approval-box-title">
               <span>
-                Confirmation Required:
-                Are you sure?
+                Confirmation Required: Are you sure?
               </span>
             </div>
 
-            <span
-              class="badge badge-medium"
-            >
+            <span class="badge badge-medium">
               MEDIUM RISK
             </span>
+
           </div>
 
           <div
@@ -322,7 +311,7 @@ async function loadInPlaceApproval(
                 )
               "
             >
-              ✓ Yes, Approve
+              Yes, Approve
             </button>
 
             <button
@@ -334,7 +323,7 @@ async function loadInPlaceApproval(
                 )
               "
             >
-              ✗ No, Reject
+              No, Reject
             </button>
           </div>
 
@@ -348,9 +337,7 @@ async function loadInPlaceApproval(
             <input
               type="text"
               id="reject-note-${req.request_id}"
-              placeholder="
-                Optional reason for rejection...
-              "
+              placeholder="Optional reason for rejection..."
               style="
                 width:70%;
                 margin-right:8px;
@@ -375,164 +362,210 @@ async function loadInPlaceApproval(
           ></div>
         </div>
       `;
-    } else {
-      container.innerHTML = `
-        <div
-          class="approval-box high-risk"
-          id="box-${req.request_id}"
-        >
-          <div
-            class="approval-box-header"
-          >
-            <div
-              class="approval-box-title"
-            >
-              <span
-                style="font-size:16px;"
-              >
-                🚨
-              </span>
 
-              <span>
-                High Risk Tool Action Approval
-              </span>
-            </div>
+      return;
+    }
 
-            <span
-              class="badge badge-high"
-            >
-              HIGH RISK
+    container.innerHTML = `
+      <div
+        class="approval-box high-risk"
+        id="box-${req.request_id}"
+      >
+        <div class="approval-box-header">
+
+          <div class="approval-box-title">
+            <span>
+              High Risk Tool Action Approval
             </span>
           </div>
 
+          <span class="badge badge-high">
+            HIGH RISK
+          </span>
+
+        </div>
+
+        <div
+          style="
+            font-size:13px;
+            margin-bottom:6px;
+          "
+        >
+          Action:
+          <b>${escapeHtml(
+            req.tool_name
+          )}</b>
+        </div>
+
+        <div
+          style="
+            font-size:13px;
+            color:var(--text-muted);
+            margin-bottom:8px;
+          "
+        >
+          <b>Reasoning:</b>
+          ${escapeHtml(
+            req.reasoning ||
+            'Agent requested execution'
+          )}
+        </div>
+
+        <div
+          style="
+            font-size:12px;
+            color:var(--text-muted);
+            margin-bottom:4px;
+          "
+        >
+          Tool Input Arguments:
+        </div>
+
+        <pre
+          id="display-input-${req.request_id}"
+        >${safeJson(
+          req.tool_input
+        )}</pre>
+
+        <div
+          id="btn-group-${req.request_id}"
+          class="action-row"
+        >
+          <button
+            class="btn-success"
+            onclick="
+              executeDecision(
+                '${req.request_id}',
+                'approved'
+              )
+            "
+          >
+            Approve
+          </button>
+
+          <button
+            class="btn-danger"
+            onclick="
+              showRejectInput(
+                '${req.request_id}'
+              )
+            "
+          >
+            Reject
+          </button>
+
+          <button
+            class="btn-warning"
+            onclick="
+              toggleModifyEditor(
+                '${req.request_id}'
+              )
+            "
+          >
+            Modify & Approve
+          </button>
+
+          <button
+            class="btn-sec"
+            onclick="
+              executeDecision(
+                '${req.request_id}',
+                'replan'
+              )
+            "
+          >
+            Replan
+          </button>
+        </div>
+
+        <div
+          id="reject-note-box-${req.request_id}"
+          style="
+            display:none;
+            margin-top:12px;
+          "
+        >
+          <input
+            type="text"
+            id="reject-note-${req.request_id}"
+            placeholder="Reason for rejection..."
+            style="
+              width:70%;
+              margin-right:8px;
+            "
+          >
+
+          <button
+            class="btn-danger"
+            onclick="
+              confirmReject(
+                '${req.request_id}'
+              )
+            "
+          >
+            Confirm Rejection
+          </button>
+
+          <button
+            class="btn-sec"
+            onclick="
+              cancelReject(
+                '${req.request_id}'
+              )
+            "
+          >
+            Cancel
+          </button>
+        </div>
+
+        <div
+          id="modify-box-${req.request_id}"
+          class="modify-editor"
+          style="display:none;"
+        >
           <div
             style="
               font-size:13px;
+              font-weight:600;
               margin-bottom:6px;
             "
           >
-            Action:
-            <b>${escapeHtml(
-              req.tool_name
-            )}</b>
+            Edit JSON Arguments:
           </div>
 
-          <div
+          <textarea
+            id="modify-input-${req.request_id}"
             style="
-              font-size:13px;
-              color:var(--text-muted);
-              margin-bottom:8px;
-            "
-          >
-            <b>Reasoning:</b>
-
-            ${escapeHtml(
-              req.reasoning ||
-              'Agent requested execution'
-            )}
-          </div>
-
-          <div
-            style="
+              min-height:100px;
+              font-family:monospace;
               font-size:12px;
-              color:var(--text-muted);
-              margin-bottom:4px;
             "
-          >
-            Tool Input Arguments:
-          </div>
-
-          <pre
-            id="display-input-${req.request_id}"
           >${safeJson(
             req.tool_input
-          )}</pre>
+          )}</textarea>
 
           <div
-            id="btn-group-${req.request_id}"
-            class="action-row"
+            style="
+              margin-top:8px;
+              display:flex;
+              gap:8px;
+            "
           >
             <button
               class="btn-success"
               onclick="
-                executeDecision(
-                  '${req.request_id}',
-                  'approved'
-                )
-              "
-            >
-              Approve
-            </button>
-
-            <button
-              class="btn-danger"
-              onclick="
-                showRejectInput(
+                submitModifiedDecision(
                   '${req.request_id}'
                 )
               "
             >
-              Reject
+              Save & Approve
             </button>
 
             <button
-              class="btn-warning"
+              class="btn-sec"
               onclick="
                 toggleModifyEditor(
-                  '${req.request_id}'
-                )
-              "
-            >
-              Modify & Approve
-            </button>
-
-            <button
-              class="btn-sec"
-              onclick="
-                executeDecision(
-                  '${req.request_id}',
-                  'replan'
-                )
-              "
-            >
-              Replan
-            </button>
-          </div>
-
-          <div
-            id="reject-note-box-${req.request_id}"
-            style="
-              display:none;
-              margin-top:12px;
-            "
-          >
-            <input
-              type="text"
-              id="reject-note-${req.request_id}"
-              placeholder="
-                Reason for rejection...
-              "
-              style="
-                width:70%;
-                margin-right:8px;
-              "
-            >
-
-            <button
-              class="btn-danger"
-              onclick="
-                confirmReject(
-                  '${req.request_id}'
-                )
-              "
-            >
-              Confirm Rejection
-            </button>
-
-            <button
-              class="btn-sec"
-              onclick="
-                cancelReject(
                   '${req.request_id}'
                 )
               "
@@ -540,71 +573,15 @@ async function loadInPlaceApproval(
               Cancel
             </button>
           </div>
-
-          <div
-            id="modify-box-${req.request_id}"
-            class="modify-editor"
-            style="display:none;"
-          >
-            <div
-              style="
-                font-size:13px;
-                font-weight:600;
-                margin-bottom:6px;
-              "
-            >
-              Edit JSON Arguments:
-            </div>
-
-            <textarea
-              id="modify-input-${req.request_id}"
-              style="
-                min-height:100px;
-                font-family:monospace;
-                font-size:12px;
-              "
-            >${safeJson(
-              req.tool_input
-            )}</textarea>
-
-            <div
-              style="
-                margin-top:8px;
-                display:flex;
-                gap:8px;
-              "
-            >
-              <button
-                class="btn-success"
-                onclick="
-                  submitModifiedDecision(
-                    '${req.request_id}'
-                  )
-                "
-              >
-                Save & Approve
-              </button>
-
-              <button
-                class="btn-sec"
-                onclick="
-                  toggleModifyEditor(
-                    '${req.request_id}'
-                  )
-                "
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-
-          <div
-            id="decision-banner-${req.request_id}"
-            style="display:none;"
-          ></div>
         </div>
-      `;
-    }
+
+        <div
+          id="decision-banner-${req.request_id}"
+          style="display:none;"
+        ></div>
+      </div>
+    `;
+
   } catch (err) {
     container.innerHTML = `
       <p
@@ -712,7 +689,8 @@ function submitModifiedDecision(
       parsed,
       'User modified inputs'
     );
-  } catch (e) {
+
+  } catch (err) {
     alert('Invalid JSON formatting.');
   }
 }
@@ -790,14 +768,22 @@ async function executeDecision(
 
   banner.innerHTML = `
     <span class="loading-spinner"></span>
-    Applying decision (
-      ${escapeHtml(
-        outcome.toUpperCase()
-      )}
-    ) & resuming agent...
+    Applying decision
+    (${escapeHtml(outcome.toUpperCase())})
+    and resuming agent...
   `;
 
   try {
+    /*
+      The approval resume creates a new trace.
+
+      Capture existing trace IDs immediately before
+      resuming so the new trace can be associated
+      with the same original user query.
+    */
+    traceIdsBeforeRun =
+      await fetchTraceIdsSafe();
+
     const res = await fetch(
       `${API_BASE}/approvals/${requestId}/resolve`,
       {
@@ -819,7 +805,9 @@ async function executeDecision(
 
     if (!res.ok) {
       const errData =
-        await res.json();
+        await res
+          .json()
+          .catch(() => ({}));
 
       throw new Error(
         errData.detail ||
@@ -827,33 +815,33 @@ async function executeDecision(
       );
     }
 
-    const data =
-      await res.json();
+    const data = await res.json();
+
+    /*
+      Attach the original query to the newly-created
+      resume trace.
+    */
+    await rememberNewTracesForQuery(
+      activeQuery
+    );
 
     if (outcome === 'approved') {
       banner.innerHTML =
-        '✓ <b>Approved:</b> ' +
-        'Action confirmed and executed.';
-    } else if (
-      outcome === 'modified'
-    ) {
+        '<b>Approved:</b> Action confirmed and executed.';
+
+    } else if (outcome === 'modified') {
       banner.innerHTML =
-        '✓ <b>Modified & Approved:</b> ' +
-        'Action executed with modified parameters.';
-    } else if (
-      outcome === 'rejected'
-    ) {
+        '<b>Modified & Approved:</b> Action executed with modified parameters.';
+
+    } else if (outcome === 'rejected') {
       banner.innerHTML =
-        `✗ <b>Rejected:</b> ` +
-        `Action denied (${escapeHtml(
+        `<b>Rejected:</b> Action denied (${escapeHtml(
           note || 'No reason specified'
         )}).`;
-    } else if (
-      outcome === 'replan'
-    ) {
+
+    } else if (outcome === 'replan') {
       banner.innerHTML =
-        '⟳ <b>Replanning:</b> ' +
-        'Agent prompted to devise an alternative approach.';
+        '<b>Replanning:</b> Agent prompted to devise an alternative approach.';
     }
 
     responseContainer.style.display =
@@ -862,8 +850,7 @@ async function executeDecision(
     responseText.style.color = '';
 
     if (
-      data.status ===
-      'awaiting_approval'
+      data.status === 'awaiting_approval'
     ) {
       title.innerText =
         'Next Step Awaiting Approval';
@@ -877,24 +864,29 @@ async function executeDecision(
       await loadInPlaceApproval(
         data.thread_id
       );
-    } else {
-      title.innerText =
-        'Execution Complete';
 
-      badge.className =
-        outcome === 'rejected'
-          ? 'badge badge-high'
-          : 'badge badge-low';
-
-      badge.innerText =
-        outcome === 'rejected'
-          ? 'REJECTED'
-          : 'COMPLETED';
-
-      responseText.innerText =
-        data.final_response ||
-        'No response text returned.';
+      return;
     }
+
+    title.innerText =
+      'Execution Complete';
+
+    badge.className =
+      outcome === 'rejected'
+        ? 'badge badge-high'
+        : 'badge badge-low';
+
+    badge.innerText =
+      outcome === 'rejected'
+        ? 'REJECTED'
+        : 'COMPLETED';
+
+    responseText.innerText =
+      cleanAgentResponse(
+        data.final_response ||
+        'No response text returned.'
+      );
+
   } catch (err) {
     banner.className =
       'decision-banner rejected';

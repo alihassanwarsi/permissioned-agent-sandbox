@@ -19,7 +19,10 @@ async function fetchTraceIdsSafe() {
   }
 }
 
-async function rememberNewTracesForQuery(query) {
+
+async function rememberNewTracesForQuery(
+  query
+) {
   try {
     const ids =
       await fetchTraceIdsSafe();
@@ -30,7 +33,8 @@ async function rememberNewTracesForQuery(query) {
 
     const newIds =
       ids.filter(
-        id => !traceIdsBeforeRun.includes(id)
+        id =>
+          !traceIdsBeforeRun.includes(id)
       );
 
     if (newIds.length) {
@@ -45,7 +49,8 @@ async function rememberNewTracesForQuery(query) {
       !traceQueryMap[ids[0]] &&
       query
     ) {
-      traceQueryMap[ids[0]] = query;
+      traceQueryMap[ids[0]] =
+        query;
 
       persistTraceQueries();
     }
@@ -60,18 +65,21 @@ async function rememberNewTracesForQuery(query) {
   }
 }
 
+
 function persistTraceQueries() {
   try {
     localStorage.setItem(
       'permissionedAgentTraceQueries',
       JSON.stringify(traceQueryMap)
     );
-  } catch (e) {
+
+  } catch (err) {
     console.warn(
       'Unable to persist trace query history.'
     );
   }
 }
+
 
 async function loadTraceTimeline(
   preferredTraceId = ''
@@ -88,7 +96,9 @@ async function loadTraceTimeline(
 
   try {
     const res =
-      await fetch(`${API_BASE}/traces`);
+      await fetch(
+        `${API_BASE}/traces`
+      );
 
     if (!res.ok) {
       throw new Error(
@@ -113,7 +123,8 @@ async function loadTraceTimeline(
 
       document.getElementById(
         'timeline-summary'
-      ).style.display = 'none';
+      ).style.display =
+        'none';
 
       spansEl.innerHTML =
         '<div class="timeline-empty">Run an agent task to create a trace.</div>';
@@ -134,7 +145,8 @@ async function loadTraceTimeline(
               id === currentSelection ||
               (
                 !currentSelection &&
-                index === traceIds.length - 1
+                index ===
+                  traceIds.length - 1
               )
                 ? 'selected'
                 : ''
@@ -147,7 +159,9 @@ async function loadTraceTimeline(
 
     const selectedId =
       select.value ||
-      traceIds[traceIds.length - 1];
+      traceIds[
+        traceIds.length - 1
+      ];
 
     await selectTimelineTrace(
       selectedId
@@ -169,7 +183,10 @@ async function loadTraceTimeline(
   }
 }
 
-async function selectTimelineTrace(traceId) {
+
+async function selectTimelineTrace(
+  traceId
+) {
   const queryEl =
     document.getElementById(
       'timeline-query-text'
@@ -208,7 +225,9 @@ async function selectTimelineTrace(traceId) {
   try {
     const res =
       await fetch(
-        `${API_BASE}/traces/${encodeURIComponent(traceId)}`
+        `${API_BASE}/traces/${encodeURIComponent(
+          traceId
+        )}`
       );
 
     if (!res.ok) {
@@ -237,7 +256,7 @@ async function selectTimelineTrace(traceId) {
     queryEl.innerText =
       traceQueryMap[traceId] ||
       traceQuery ||
-      'Query metadata is not attached to this historical trace.';
+      'Query unavailable for this trace.';
 
   } catch (err) {
     summaryEl.style.display =
@@ -255,12 +274,17 @@ async function selectTimelineTrace(traceId) {
   }
 }
 
-function getQueryFromSpans(spans) {
+
+function getQueryFromSpans(
+  spans
+) {
   for (
     const span of
-    (Array.isArray(spans)
-      ? spans
-      : [])
+    (
+      Array.isArray(spans)
+        ? spans
+        : []
+    )
   ) {
     const attrs =
       span.attributes || {};
@@ -278,6 +302,7 @@ function getQueryFromSpans(spans) {
 
   return '';
 }
+
 
 function renderTraceTimeline(
   traceId,
@@ -309,22 +334,27 @@ function renderTraceTimeline(
   const sortedSpans =
     [...spans].sort(
       (a, b) =>
-        Number(a.start_time || 0) -
-        Number(b.start_time || 0)
+        Number(
+          a.start_time || 0
+        ) -
+        Number(
+          b.start_time || 0
+        )
     );
 
   const traceStart =
     Number(
-      sortedSpans[0].start_time || 0
+      sortedSpans[0]
+        .start_time || 0
     );
 
   const traceEnd =
     Math.max(
       ...sortedSpans.map(
-        s =>
+        span =>
           Number(
-            s.end_time ||
-            s.start_time ||
+            span.end_time ||
+            span.start_time ||
             0
           )
       )
@@ -338,16 +368,18 @@ function renderTraceTimeline(
   const decisions =
     sortedSpans
       .map(
-        s =>
-          s.attributes?.decision
+        span =>
+          span.attributes
+            ?.decision
       )
       .filter(Boolean);
 
   const errors =
     sortedSpans.filter(
-      s =>
+      span =>
         (
-          s.attributes?.status ||
+          span.attributes
+            ?.status ||
           ''
         ).toLowerCase() ===
         'error'
@@ -379,7 +411,9 @@ function renderTraceTimeline(
             <b>Decisions:</b>
             ${escapeHtml(
               [
-                ...new Set(decisions)
+                ...new Set(
+                  decisions
+                )
               ].join(', ')
             )}
           </span>
@@ -410,7 +444,10 @@ function renderTraceTimeline(
       ${
         sortedSpans
           .map(
-            (span, index) =>
+            (
+              span,
+              index
+            ) =>
               renderTimelineItem(
                 span,
                 index,
@@ -422,6 +459,7 @@ function renderTraceTimeline(
     </div>
   `;
 }
+
 
 function renderTimelineItem(
   span,
@@ -438,21 +476,25 @@ function renderTimelineItem(
 
   const decision =
     attrs.decision
-      ? String(attrs.decision)
+      ? String(
+          attrs.decision
+        )
       : '';
 
   const dotClass =
     status === 'error' ||
     decision === 'denied'
       ? 'danger'
+
       : decision ===
           'needs_approval' ||
         decision ===
           'needs_confirmation' ||
         decision ===
           'rate_limited'
-      ? 'warning'
-      : 'success';
+        ? 'warning'
+
+        : 'success';
 
   const duration =
     formatDurationNs(
@@ -481,40 +523,47 @@ function renderTimelineItem(
     {
       label: 'Node',
       value:
-        span.name || 'Unknown'
+        span.name ||
+        'Unknown'
     },
     {
       label: 'Duration',
-      value: duration
+      value:
+        duration
     },
     {
       label: 'Start',
-      value: startTime
+      value:
+        startTime
     },
     {
       label: 'End',
-      value: endTime
+      value:
+        endTime
     }
   ];
 
   if (selectedTool) {
     fields.push({
       label: 'Tool',
-      value: selectedTool
+      value:
+        selectedTool
     });
   }
 
   if (decision) {
     fields.push({
       label: 'Decision',
-      value: decision
+      value:
+        decision
     });
   }
 
   if (status) {
     fields.push({
       label: 'Status',
-      value: status
+      value:
+        status
     });
   }
 
@@ -527,35 +576,50 @@ function renderTimelineItem(
 
       <div class="timeline-node">
 
-        <div class="timeline-node-header">
+        <div
+          class="timeline-node-header"
+        >
 
-          <div class="timeline-node-name">
+          <div
+            class="timeline-node-name"
+          >
             ${escapeHtml(
               span.name ||
               `Node ${index + 1}`
             )}
           </div>
 
-          <div class="timeline-node-duration">
-            ${escapeHtml(duration)}
+          <div
+            class="timeline-node-duration"
+          >
+            ${escapeHtml(
+              duration
+            )}
           </div>
 
         </div>
 
-        <div class="timeline-node-summary">
-
+        <div
+          class="timeline-node-summary"
+        >
           ${
             fields.map(
               field => `
-                <div class="timeline-field">
+                <div
+                  class="timeline-field"
+                >
 
-                  <span class="timeline-field-label">
+                  <span
+                    class="timeline-field-label"
+                  >
                     ${escapeHtml(
                       field.label
                     )}
                   </span>
 
-                  <span class="timeline-field-value">
+                  <span
+                    class="timeline-field-value"
+                  >
                     ${escapeHtml(
                       String(
                         field.value
@@ -567,11 +631,11 @@ function renderTimelineItem(
               `
             ).join('')
           }
-
         </div>
 
-        <details class="timeline-details">
-
+        <details
+          class="timeline-details"
+        >
           <summary>
             View deep details
           </summary>
@@ -579,30 +643,35 @@ function renderTimelineItem(
           <pre>${escapeHtml(
             JSON.stringify(
               {
-                name: span.name,
+                name:
+                  span.name,
+
                 start_time:
                   span.start_time,
+
                 end_time:
                   span.end_time,
+
                 duration_ms:
                   calculateDurationMs(
                     span.start_time,
                     span.end_time
                   ),
-                attributes: attrs
+
+                attributes:
+                  attrs
               },
               null,
               2
             )
           )}</pre>
-
         </details>
 
       </div>
-
     </div>
   `;
 }
+
 
 function calculateDurationMs(
   startTime,
@@ -634,6 +703,7 @@ function calculateDurationMs(
   );
 }
 
+
 function formatDurationNs(
   durationNs
 ) {
@@ -657,12 +727,17 @@ function formatDurationNs(
     return `${ms.toFixed(2)} ms`;
   }
 
-  return `${(
-    ms / 1000
-  ).toFixed(2)} s`;
+  return `${
+    (
+      ms / 1000
+    ).toFixed(2)
+  } s`;
 }
 
-function formatTimestamp(value) {
+
+function formatTimestamp(
+  value
+) {
   if (!value) {
     return 'N/A';
   }
@@ -692,7 +767,10 @@ function formatTimestamp(value) {
   return date.toLocaleString();
 }
 
-function escapeHtml(value) {
+
+function escapeHtml(
+  value
+) {
   return String(
     value ?? ''
   )
