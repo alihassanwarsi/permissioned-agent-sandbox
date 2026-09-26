@@ -1,8 +1,9 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from app.models.user import Role
 from app.models.tool_spec import RiskLevel, ToolSpec
 
 class WebSearchInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     query: str
     max_results: int = 5
 

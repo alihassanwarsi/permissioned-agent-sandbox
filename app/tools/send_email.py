@@ -1,8 +1,9 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from app.models.user import Role
 from app.models.tool_spec import RiskLevel, ToolSpec
 
 class SendEmailInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     to: EmailStr
     subject: str
     body: str

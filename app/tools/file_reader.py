@@ -1,11 +1,12 @@
 from pathlib import Path
-from pydantic import BaseModel
+from pydantic import BaseModel,ConfigDict
 from app.models.user import Role
 from app.models.tool_spec import RiskLevel, ToolSpec
 
 SANDBOX_DIR = Path("sandbox_files").resolve()
 
 class FileReaderInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     path: str
 
 class FileReaderOutput(BaseModel):

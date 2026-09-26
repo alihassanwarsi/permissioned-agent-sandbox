@@ -10,8 +10,11 @@ def execute_tool(state: AgentState, registry: ToolRegistry, rate_limiter: RateLi
     tool = registry.get(state.selected_tool)
 
     try:
-        result = tool.handler(tool.input_schema(**(state.tool_input or {})))
-        state.tool_result = result.model_dump()
+        validated_input = tool.input_schema.model_validate(state.tool_input or {})
+        result = tool.handler(validated_input)
+        validated_output = tool.output_schema.model_validate(result)
+        state.tool_result = validated_output.model_dump()
+        state.tool_error = None
         rate_limiter.record_call(state.user.id, tool.name)
     except Exception as e:
         state.tool_error = str(e)
