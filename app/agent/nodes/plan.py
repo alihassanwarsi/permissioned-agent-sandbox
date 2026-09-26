@@ -7,7 +7,7 @@ from app.models.plan import PlanOutput
 from app.tools.registry import ToolRegistry
 
 def plan(state: AgentState, registry: ToolRegistry) -> AgentState:
-    prompt = build_planning_prompt(state.user_message, registry)
+    prompt = build_planning_prompt(state.user_message, registry, planning_feedback=state.planning_feedback)
 
     raw_response = call_llm(prompt)
 

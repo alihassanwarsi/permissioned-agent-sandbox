@@ -18,7 +18,8 @@ class AgentState(BaseModel):
     tool_result: Optional[Any] = None
     tool_error: Optional[str] = None
     retry_count: int = 0
-
+    planning_feedback: Optional[str] = None
+    
     final_response: Optional[str] = None
 
     approval_request_id: Optional[str] = None

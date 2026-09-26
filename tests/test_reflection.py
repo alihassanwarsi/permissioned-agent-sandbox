@@ -33,4 +33,5 @@ def test_gives_up_when_llm_says_stop(mock_call_llm):
 def test_gives_up_after_max_retries_without_calling_llm():
     state = reflect(make_state(tool_error="still broken", retry_count=2))
     assert state.final_response is not None
-    assert "2 attempts" in state.final_response
+    assert "repeated attempts" in state.final_response
+    assert "still broken" in state.final_response

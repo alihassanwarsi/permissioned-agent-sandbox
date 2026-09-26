@@ -2,6 +2,7 @@ import uuid
 from langgraph.types import interrupt
 from app.approval.queue import ApprovalQueue
 from app.models.agent_state import AgentState
+from app.agent.prompts import build_replan_feedback
 from app.models.approval import ApprovalKind, ApprovalOutcome, ApprovalRequest
 from app.permissions.checker import Decision
 from app.tools.registry import ToolRegistry
@@ -59,6 +60,11 @@ def approval_wait(state: AgentState, registry: ToolRegistry, queue: ApprovalQueu
         state.tool_input = decision.get("modified_input", state.tool_input)
 
     elif outcome == ApprovalOutcome.REPLAN:
+        state.planning_feedback = build_replan_feedback(
+            tool_name=state.selected_tool,
+            tool_input=state.tool_input,
+            note=decision.get("note")
+            )
         state.selected_tool = None
         state.tool_input = None
         state.decision = None
