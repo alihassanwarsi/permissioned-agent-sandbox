@@ -1,0 +1,5 @@
+FROM nginx:alpine
+
+COPY app/ui /usr/share/nginx/html
+
+EXPOSE 80
